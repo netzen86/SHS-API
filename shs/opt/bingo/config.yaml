@@ -1,0 +1,10 @@
+student_email: netzen@yandex.ru
+postgres_cluster:
+  hosts:
+  - address: db
+    port: 5432
+  user: postgres
+  password: postgres
+  db_name: postgres
+  ssl_mode: disable
+  use_closest_node: false
