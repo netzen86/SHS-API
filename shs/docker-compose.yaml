@@ -6,3 +6,15 @@ services:
     restart: always
     ports:
       - "80:33207"
+    volumes:
+      - /opt/bingo:/opt/bingo/
+
+  unifiedagent:
+    container_name: unifiedagent 
+    image: "cr.yandex/yc/unified-agent" 
+    environment:
+      FOLDER_ID: "${folder_id}"
+    restart: always 
+    network_mode: "host" 
+    volumes:
+      - /ua:/etc/yandex/unified_agent/conf.d
