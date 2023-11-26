@@ -1,18 +1,29 @@
 name: Docker Image CI
 
+# on: [push]
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    paths:
+      - shs/**
 
 jobs:
-
-  build:
-
+  build_and_push_to_yc:
+    name: Push Docker image to Yandex Cloud Registry
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v3
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+      - name: Check out the repo
+        uses: actions/checkout@v2 
+      - name: Login to Yandex Cloud Container Registry
+        id: login-cr
+        uses: yc-actions/yc-cr-login@v1
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+          # this generated key
+
+      - name: Build, tag, and push image to Yandex Cloud Container Registry
+        env:
+          CR_REGISTRY: crpbccj0cfhnv6t6ocnd
+          IMAGE_TAG: shs:latest
+        run: |
+          docker build -t cr.yandex/$CR_REGISTRY/$IMAGE_TAG shs/.
+          docker push cr.yandex/$CR_REGISTRY/$IMAGE_TAG
