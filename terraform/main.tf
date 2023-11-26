@@ -29,7 +29,7 @@ resource "yandex_vpc_subnet" "nz-net" {
 # }
 
 locals {
-  folder_id = "b1g5tv4fsuuk2l9gvd1p"
+  folder_id   = "b1g5tv4fsuuk2l9gvd1p"
   registry_id = "crpbccj0cfhnv6t6ocnd"
   service-accounts = toset([
     # "shs-container",
@@ -68,6 +68,62 @@ resource "yandex_resourcemanager_folder_iam_member" "shs-ig-sa-roles" {
 
 data "yandex_compute_image" "coi" {
   family = "container-optimized-image"
+}
+
+resource "yandex_compute_instance_group" "db" {
+  depends_on = [
+    yandex_resourcemanager_folder_iam_member.shs-ig-sa-roles
+  ]
+  name               = "db"
+  service_account_id = yandex_iam_service_account.service-accounts["shs-ig-sa"].id
+  allocation_policy {
+    zones = ["ru-central1-a"]
+  }
+  deploy_policy {
+    max_unavailable = 0
+    max_creating    = 1
+    max_expansion   = 2
+    max_deleting    = 1
+  }
+  scale_policy {
+    fixed_scale {
+      size = 2
+    }
+  }
+  instance_template {
+    platform_id        = "standard-v2"
+    service_account_id = yandex_iam_service_account.service-accounts["shs-ig-sa"].id
+    resources {
+      cores         = 2
+      memory        = 1
+      core_fraction = 5
+    }
+    scheduling_policy {
+      preemptible = true
+    }
+    network_interface {
+      # network_id = yandex_vpc_network.nz-net.id
+      subnet_ids = ["${yandex_vpc_subnet.nz-net.id}"]
+      nat        = false
+    }
+    boot_disk {
+      initialize_params {
+        type     = "network-hdd"
+        size     = "30"
+        image_id = data.yandex_compute_image.coi.id
+      }
+    }
+    metadata = {
+      docker-compose = templatefile(
+        "${path.module}/../db/docker-compose.yaml",
+        {
+          registry_id = "${local.registry_id}",
+          folder_id   = "${local.folder_id}",
+        }
+      )
+      user-data = "${file("${path.module}/../db/cloud_config.yaml")}"
+    }
+  }
 }
 
 resource "yandex_compute_instance_group" "shs" {
@@ -115,12 +171,19 @@ resource "yandex_compute_instance_group" "shs" {
     }
     metadata = {
       docker-compose = templatefile(
-        "${path.module}/docker-compose.yaml",
+        "${path.module}/../shs/docker-compose.yaml",
         {
-          registry_id = local.registry_id,
+          registry_id = "${local.registry_id}",
+          folder_id   = "${local.folder_id}",
         }
-      )      
-      user-data      = "${file("${path.module}/cloud_config.yaml")}"
+      )
+      user-data = templatefile(
+        "${path.module}/../shs/cloud_config.yaml",
+        {
+          db_address = "${yandex_compute_instance_group.db.instance_template[0].network_interface[0].ip_address}"
+        }
+      )
+      # user-data      = "${file("${path.module}/cloud_config.yaml")}"
     }
   }
 }
