@@ -1,0 +1,8 @@
+version: '3.3'
+services:
+
+  shs:
+    image: "cr.yandex/${registry_id}/shs:latest"
+    restart: always
+    ports:
+      - "80:33207"
