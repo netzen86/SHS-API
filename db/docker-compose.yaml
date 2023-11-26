@@ -6,21 +6,21 @@ services:
     ports:
       - "5432:5432"    
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
-      POSTGRES_USER: ${POSTGRES_USER:-user}
-      POSTGRES_DB: ${POSTGRES_DB:-db}
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     volumes:
       - db_data:/var/lib/postgresql/data/
-    env_file:
-      - ./.env
-  shs:
-    build:
-      context: ..
-      dockerfile: shs/Dockerfile
-    ports:
-      - "80:33207"
-    depends_on:
-      - db
+
+  unifiedagent:
+    container_name: unifiedagent 
+    image: "cr.yandex/yc/unified-agent" 
+    environment:
+      FOLDER_ID: "${folder_id}"
+    restart: always 
+    network_mode: "host" 
+    volumes:
+      - /ua:/etc/yandex/unified_agent/conf.d
 
 volumes:
   db_data:
