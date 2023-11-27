@@ -33,3 +33,6 @@ write_files:
     ssl_mode: disable
     use_closest_node: false
   path: /opt/bingo/config.yaml
+- content: |
+    create log dir
+  path: /opt/bongo/logs/b6c82e0feb/create.dir
