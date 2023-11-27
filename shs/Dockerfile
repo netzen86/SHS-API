@@ -5,7 +5,7 @@ FROM gcr.io/distroless/static-debian12:${GOARCH}
 
 WORKDIR /app
 # copy config file and direcroty struct in container
-COPY --chown=nonroot:nonroot shs/opt/bongo /opt/bongo
+COPY --chown=nonroot:nonroot /opt/bongo /opt/bongo
 # for local run uncomment next line
 # COPY --chown=nonroot:nonroot /opt /opt
 
