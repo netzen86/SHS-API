@@ -15,8 +15,8 @@ services:
       - ./.env
   shs:
     build:
-      context: ..
-      dockerfile: shs/Dockerfile
+      context: shs
+      dockerfile: Dockerfile
     ports:
       - "80:33207"
     depends_on:
