@@ -1,6 +1,7 @@
 # for mac change nonroot-arm64
 ARG GOARCH=nonroot-amd64
 
+# debian distroless
 FROM gcr.io/distroless/static-debian12:${GOARCH}
 
 WORKDIR /app
