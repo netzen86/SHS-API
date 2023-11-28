@@ -4,4 +4,6 @@
 
 ```iptables -A OUTPUT -p tcp -d 8.8.8.8 --dport 80 -j REJECT```
 
+```sudo iptables -I DOCKER-USER -p tcp -d 8.8.8.8 --dport 80 -j REJECT```
+
 ```sudo iptables -n -L -v```
