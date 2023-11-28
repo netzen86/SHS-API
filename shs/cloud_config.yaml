@@ -26,13 +26,15 @@ write_files:
     postgres_cluster:
       hosts:
       - address: ${db_address}
-      port: 5432
-    user: postgres
-    password: postgres
-    db_name: postgres
-    ssl_mode: disable
-    use_closest_node: false
+        port: 5432
+      user: postgres
+      password: postgres
+      db_name: postgres
+      ssl_mode: disable
+      use_closest_node: false
   path: /opt/bingo/config.yaml
 - content: |
-    create log dir
-  path: /opt/bongo/logs/b6c82e0feb/create.dir
+    log for shs
+  owner: netzen:netzen
+  permissions: '0777'
+  path: /opt/bongo/logs/b6c82e0feb/main.log

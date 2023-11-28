@@ -32,13 +32,13 @@ locals {
   folder_id   = "b1g5tv4fsuuk2l9gvd1p"
   registry_id = "crpbccj0cfhnv6t6ocnd"
   service-accounts = toset([
-    # "shs-container",
+    "shs-container",
     "shs-ig-sa"
   ])
-  # shs-container-roles = toset([
-  #   "container-registry.images.puller",
-  #   "monitoring.editor",
-  # ])
+  shs-container-roles = toset([
+    "container-registry.images.puller",
+    "monitoring.editor",
+  ])
   shs-ig-sa-roles = toset([
     "compute.editor",
     "iam.serviceAccounts.user",
@@ -52,12 +52,12 @@ resource "yandex_iam_service_account" "service-accounts" {
   name     = each.key
 }
 
-# resource "yandex_resourcemanager_folder_iam_member" "shs-container-roles" {
-#   for_each  = local.shs-container-roles
-#   folder_id = local.folder_id
-#   member    = "serviceAccount:${yandex_iam_service_account.service-accounts["shs-container"].id}"
-#   role      = each.key
-# }
+resource "yandex_resourcemanager_folder_iam_member" "shs-container-roles" {
+  for_each  = local.shs-container-roles
+  folder_id = local.folder_id
+  member    = "serviceAccount:${yandex_iam_service_account.service-accounts["shs-container"].id}"
+  role      = each.key
+}
 
 resource "yandex_resourcemanager_folder_iam_member" "shs-ig-sa-roles" {
   for_each  = local.shs-ig-sa-roles
@@ -87,12 +87,12 @@ resource "yandex_compute_instance_group" "db" {
   }
   scale_policy {
     fixed_scale {
-      size = 2
+      size = 1
     }
   }
   instance_template {
     platform_id        = "standard-v2"
-    service_account_id = yandex_iam_service_account.service-accounts["shs-ig-sa"].id
+    service_account_id = yandex_iam_service_account.service-accounts["shs-container"].id
     resources {
       cores         = 2
       memory        = 1
@@ -104,7 +104,7 @@ resource "yandex_compute_instance_group" "db" {
     network_interface {
       # network_id = yandex_vpc_network.nz-net.id
       subnet_ids = ["${yandex_vpc_subnet.nz-net.id}"]
-      nat        = false
+      nat        = true
     }
     boot_disk {
       initialize_params {
@@ -124,6 +124,10 @@ resource "yandex_compute_instance_group" "db" {
       user-data = "${file("${path.module}/../db/cloud_config.yaml")}"
     }
   }
+}
+
+data "yandex_compute_instance_group" "db" {
+  instance_group_id = yandex_compute_instance_group.db.id
 }
 
 resource "yandex_compute_instance_group" "shs" {
@@ -148,7 +152,7 @@ resource "yandex_compute_instance_group" "shs" {
   }
   instance_template {
     platform_id        = "standard-v2"
-    service_account_id = yandex_iam_service_account.service-accounts["shs-ig-sa"].id
+    service_account_id = yandex_iam_service_account.service-accounts["shs-container"].id
     resources {
       cores         = 2
       memory        = 1
@@ -180,7 +184,9 @@ resource "yandex_compute_instance_group" "shs" {
       user-data = templatefile(
         "${path.module}/../shs/cloud_config.yaml",
         {
-          db_address = "${yandex_compute_instance_group.db.instance_template[0].network_interface[0].ip_address}"
+          db_address = "${data.yandex_compute_instance_group.db.instances.0.network_interface.0.ip_address}"
+
+          # db_address = "${yandex_compute_instance_group.db.instance_template.0.network_interface.0.ip_address}"
         }
       )
       # user-data      = "${file("${path.module}/cloud_config.yaml")}"

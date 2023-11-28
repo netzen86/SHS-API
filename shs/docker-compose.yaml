@@ -7,7 +7,7 @@ services:
     ports:
       - "80:33207"
     volumes:
-      - /opt/bingo:/opt/bingo/
+      - /opt:/opt
 
   unifiedagent:
     container_name: unifiedagent 
