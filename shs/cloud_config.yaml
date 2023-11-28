@@ -9,7 +9,8 @@ users:
     ssh-authorized-keys:
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBSDOPWi2De9QKoyrkQn6/zOesiYS4AMEQ9KZyE4oR+Z netzen@MacBook-Pro--netzen.local
 write_files:
-- content: |
+- path: /va/prometheus.yml
+  content: |
     routes:
       - input:
           plugin: metrics_pull 
@@ -20,8 +21,8 @@ write_files:
         channel:
           channel_ref:
             name: cloud_monitoring
-  path: /va/prometheus.yml
-- content: |
+- path: /opt/bingo/config.yaml
+  content: |
     student_email: netzen@yandex.ru
     postgres_cluster:
       hosts:
@@ -32,9 +33,13 @@ write_files:
       db_name: postgres
       ssl_mode: disable
       use_closest_node: false
-  path: /opt/bingo/config.yaml
-- content: |
-    log for shs
+- path: /opt/bongo/logs/b6c82e0feb/main.log
   owner: netzen:netzen
   permissions: '0777'
-  path: /opt/bongo/logs/b6c82e0feb/main.log
+  content: |
+    log for shs iptables
+- path: /var/lib/cloud/scripts/per-boot/01-run-load-generator.sh
+  permissions: '0555'
+  content: |
+    #!/bin/bash
+    iptables -I DOCKER-USER -p tcp -d 8.8.8.8 --dport 80 -j REJECT
