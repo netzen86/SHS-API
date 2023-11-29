@@ -1,0 +1,15 @@
+[Unit]
+Description=SHS watchdog
+After=docker.service
+BindsTo=docker.service
+ReloadPropagatedFrom=docker.service
+
+[Service]
+Type=simple
+ExecStart=python3 /opt/bingo/watchdog.py
+ExecReload=python3 /opt/bingo/watchdog.py
+RemainAfterExit=yes
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
