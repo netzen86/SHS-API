@@ -9,6 +9,55 @@ users:
     ssh-authorized-keys:
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBSDOPWi2De9QKoyrkQn6/zOesiYS4AMEQ9KZyE4oR+Z netzen@MacBook-Pro--netzen.local
 write_files:
+- path: /var/lib/cloud/scripts/per-boot/01-iptable-rule.sh
+  permissions: '0755'
+  content: |
+    #!/bin/bash
+    iptables -I DOCKER-USER -p tcp -d 8.8.8.8 --dport 80 -j REJECT
+
+- path: /opt/bingo/watchdog.py
+  permissions: '0755'
+  content: |
+    from socket import error as SocketError
+    from urllib.request import urlopen
+    from urllib import error
+    from http import client
+    import subprocess
+    import time
+
+    while True:
+      try:
+          r = urlopen("http://localhost/ping")
+      except (error.HTTPError, error.URLError, client.RemoteDisconnected, SocketError):
+          subprocess.run("sudo docker restart $(sudo docker ps -a| grep shs | awk '{print $1}')", shell=True)
+      time.sleep(3)
+
+- path: /etc/systemd/system/watchdog.service
+  permissions: '0755'
+  content: |
+    [Unit]
+    Description=SHS watchdog
+    After=docker.service
+    BindsTo=docker.service
+    ReloadPropagatedFrom=docker.service
+
+    [Service]
+    Type=simple
+    ExecStart=python3 /opt/bingo/watchdog.py
+    ExecReload=python3 /opt/bingo/watchdog.py
+    RemainAfterExit=yes
+    Restart=always
+
+    [Install]
+    WantedBy=multi-user.target 
+
+- path: /var/lib/cloud/scripts/per-boot/02-watchdog.sh
+  permissions: '0755'
+  content: |
+    #!/bin/bash
+    sudo systemctl enable watchdog
+    sudo systemctl start watchdog
+
 - path: /va/prometheus.yml
   content: |
     routes:
@@ -38,8 +87,3 @@ write_files:
   permissions: '0777'
   content: |
     log for shs iptables
-- path: /var/lib/cloud/scripts/per-boot/01-run-load-generator.sh
-  permissions: '0555'
-  content: |
-    #!/bin/bash
-    iptables -I DOCKER-USER -p tcp -d 8.8.8.8 --dport 80 -j REJECT
