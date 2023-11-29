@@ -41,6 +41,7 @@ locals {
   ])
   shs-ig-sa-roles = toset([
     "compute.editor",
+    "load-balancer.admin",
     "iam.serviceAccounts.user",
     "vpc.publicAdmin",
     "vpc.user",
@@ -94,9 +95,9 @@ resource "yandex_compute_instance_group" "db" {
     platform_id        = "standard-v2"
     service_account_id = yandex_iam_service_account.service-accounts["shs-container"].id
     resources {
-      cores         = 2
-      memory        = 1
-      core_fraction = 5
+      cores         = 4
+      memory        = 8
+      core_fraction = 20
     }
     scheduling_policy {
       preemptible = true
@@ -150,6 +151,16 @@ resource "yandex_compute_instance_group" "shs" {
       size = 2
     }
   }
+  health_check {
+    interval            = 30
+    timeout             = 10
+    unhealthy_threshold = 5
+    healthy_threshold   = 3
+    http_options {
+      port = 80
+      path = "/ping"
+    }
+  }
   instance_template {
     platform_id        = "standard-v2"
     service_account_id = yandex_iam_service_account.service-accounts["shs-container"].id
@@ -185,11 +196,36 @@ resource "yandex_compute_instance_group" "shs" {
         "${path.module}/../shs/cloud_config.yaml",
         {
           db_address = "${data.yandex_compute_instance_group.db.instances.0.network_interface.0.ip_address}"
-
-          # db_address = "${yandex_compute_instance_group.db.instance_template.0.network_interface.0.ip_address}"
         }
       )
-      # user-data      = "${file("${path.module}/cloud_config.yaml")}"
+    }
+  }
+  load_balancer {
+    target_group_name = "shs"
+  }
+}
+
+
+resource "yandex_lb_network_load_balancer" "lb-shs" {
+  name = "shs"
+  listener {
+    name        = "shs-listener"
+    port        = 80
+    target_port = 80
+    external_address_spec {
+      ip_version = "ipv4"
+    }
+  }
+
+  attached_target_group {
+    target_group_id = yandex_compute_instance_group.shs.load_balancer[0].target_group_id
+
+    healthcheck {
+      name = "http"
+      http_options {
+        port = 80
+        path = "/ping"
+      }
     }
   }
 }
