@@ -14,6 +14,8 @@
 
 ```terraform import yandex_compute_instance_group.db cl10otj5r784lshsnl1j```
 
+```terraform destroy -target yandex_compute_instance_group.nginx```
+
 ```bingo completion bash > bingo-prompt```
 
 ```cp bingo-prompt /usr/share/bash-completion/completions/bingo```
