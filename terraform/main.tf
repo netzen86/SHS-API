@@ -200,32 +200,107 @@ resource "yandex_compute_instance_group" "shs" {
       )
     }
   }
-  load_balancer {
-    target_group_name = "shs"
-  }
+  # load_balancer {
+  #   target_group_name = "shs"
+  # }
 }
 
+data "yandex_compute_instance_group" "shs" {
+  instance_group_id = yandex_compute_instance_group.shs.id
+}
 
-resource "yandex_lb_network_load_balancer" "lb-shs" {
-  name = "shs"
-  listener {
-    name        = "shs-listener"
-    port        = 80
-    target_port = 80
-    external_address_spec {
-      ip_version = "ipv4"
+resource "yandex_compute_instance_group" "nginx" {
+  depends_on = [
+    yandex_resourcemanager_folder_iam_member.shs-ig-sa-roles
+  ]
+  name               = "nginx"
+  service_account_id = yandex_iam_service_account.service-accounts["shs-ig-sa"].id
+  allocation_policy {
+    zones = ["ru-central1-a"]
+  }
+  deploy_policy {
+    max_unavailable = 1
+    max_creating    = 2
+    max_expansion   = 2
+    max_deleting    = 2
+  }
+  scale_policy {
+    fixed_scale {
+      size = 1
     }
   }
-
-  attached_target_group {
-    target_group_id = yandex_compute_instance_group.shs.load_balancer[0].target_group_id
-
-    healthcheck {
-      name = "http"
-      http_options {
-        port = 80
-        path = "/ping"
+  health_check {
+    interval            = 30
+    timeout             = 10
+    unhealthy_threshold = 5
+    healthy_threshold   = 3
+    http_options {
+      port = 80
+      path = "/nginx-status"
+    }
+  }
+  instance_template {
+    platform_id        = "standard-v2"
+    service_account_id = yandex_iam_service_account.service-accounts["shs-container"].id
+    resources {
+      cores         = 4
+      memory        = 4
+      core_fraction = 20
+    }
+    scheduling_policy {
+      preemptible = true
+    }
+    network_interface {
+      # network_id = yandex_vpc_network.nz-net.id
+      subnet_ids = ["${yandex_vpc_subnet.nz-net.id}"]
+      nat        = true
+    }
+    boot_disk {
+      initialize_params {
+        type     = "network-hdd"
+        size     = "30"
+        image_id = data.yandex_compute_image.coi.id
       }
     }
+    metadata = {
+      docker-compose = templatefile(
+        "${path.module}/../nginx/docker-compose.yaml",
+        {
+          registry_id = "${local.registry_id}",
+          folder_id   = "${local.folder_id}",
+        }
+      )
+      user-data = templatefile(
+        "${path.module}/../nginx/cloud_config.yaml",
+        {
+          shs_address_0 = "${data.yandex_compute_instance_group.shs.instances.0.network_interface.0.ip_address}"
+          shs_address_1 = "${data.yandex_compute_instance_group.shs.instances.1.network_interface.0.ip_address}"
+        }
+      )
+    }
   }
 }
+
+# resource "yandex_lb_network_load_balancer" "lb-shs" {
+#   name = "shs"
+#   listener {
+#     name        = "shs-listener"
+#     port        = 80
+#     target_port = 80
+#     external_address_spec {
+#       ip_version = "ipv4"
+#     }
+#   }
+
+#   attached_target_group {
+#     target_group_id = yandex_compute_instance_group.shs.load_balancer[0].target_group_id
+
+#     healthcheck {
+#       name = "http"
+#       http_options {
+#         port = 80
+#         path = "/ping"
+#       }
+#     }
+#   }
+# }
