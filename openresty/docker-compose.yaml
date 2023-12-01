@@ -1,0 +1,12 @@
+version: '3.3'
+services:
+
+  nginx:
+    image: docker.io/openresty/openresty:jammy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/nginx/conf.d/:/etc/nginx/conf.d/
+      - /usr/local/openresty/module/lib/resty/upstream/:/usr/local/openresty/module/lib/resty/upstream/
