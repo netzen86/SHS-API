@@ -11,7 +11,7 @@
 ### Docker;
 ### Openresty - fork nginx;
 ### PostgreSQL - база данных;
-### Trraform;
+### Terraform;
 ### GitHub Actions.
 
 ## Схема
