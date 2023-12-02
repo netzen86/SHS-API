@@ -71,6 +71,14 @@ data "yandex_compute_image" "coi" {
   family = "container-optimized-image"
 }
 
+data "external" "env" {
+  program = ["${path.module}/env.sh"]
+}
+
+output "env" {
+  value = data.external.env.result
+}
+
 resource "yandex_compute_instance_group" "db" {
   depends_on = [
     yandex_resourcemanager_folder_iam_member.shs-ig-sa-roles
@@ -118,8 +126,11 @@ resource "yandex_compute_instance_group" "db" {
       docker-compose = templatefile(
         "${path.module}/../db/docker-compose.yaml",
         {
-          registry_id = "${local.registry_id}",
-          folder_id   = "${local.folder_id}",
+          registry_id       = "${local.registry_id}",
+          folder_id         = "${local.folder_id}",
+          POSTGRES_DB       = "${data.external.env.result["POSTGRES_DB"]}",
+          POSTGRES_USER     = "${data.external.env.result["POSTGRES_USER"]}",
+          POSTGRES_PASSWORD = "${data.external.env.result["POSTGRES_PASSWORD"]}",
         }
       )
       user-data = "${file("${path.module}/../db/cloud_config.yaml")}"
@@ -133,7 +144,7 @@ data "yandex_compute_instance_group" "db" {
 
 resource "yandex_compute_instance_group" "shs" {
   depends_on = [
-    yandex_resourcemanager_folder_iam_member.shs-ig-sa-roles
+    yandex_resourcemanager_folder_iam_member.shs-ig-sa-roles,
   ]
   name               = "shs"
   service_account_id = yandex_iam_service_account.service-accounts["shs-ig-sa"].id
@@ -195,7 +206,11 @@ resource "yandex_compute_instance_group" "shs" {
       user-data = templatefile(
         "${path.module}/../shs/cloud_config.yaml",
         {
-          db_address = "${data.yandex_compute_instance_group.db.instances.0.network_interface.0.ip_address}"
+          db_address        = "${data.yandex_compute_instance_group.db.instances.0.network_interface.0.ip_address}"
+          POSTGRES_DB       = "${data.external.env.result["POSTGRES_DB"]}",
+          POSTGRES_USER     = "${data.external.env.result["POSTGRES_USER"]}",
+          POSTGRES_PASSWORD = "${data.external.env.result["POSTGRES_PASSWORD"]}",
+
         }
       )
     }
@@ -207,78 +222,6 @@ resource "yandex_compute_instance_group" "shs" {
 
 data "yandex_compute_instance_group" "shs" {
   instance_group_id = yandex_compute_instance_group.shs.id
-}
-
-resource "yandex_compute_instance_group" "nginx" {
-  depends_on = [
-    yandex_resourcemanager_folder_iam_member.shs-ig-sa-roles
-  ]
-  name               = "nginx"
-  service_account_id = yandex_iam_service_account.service-accounts["shs-ig-sa"].id
-  allocation_policy {
-    zones = ["ru-central1-a"]
-  }
-  deploy_policy {
-    max_unavailable = 1
-    max_creating    = 2
-    max_expansion   = 2
-    max_deleting    = 2
-  }
-  scale_policy {
-    fixed_scale {
-      size = 1
-    }
-  }
-  health_check {
-    interval            = 30
-    timeout             = 10
-    unhealthy_threshold = 5
-    healthy_threshold   = 3
-    http_options {
-      port = 80
-      path = "/nginx-status"
-    }
-  }
-  instance_template {
-    platform_id        = "standard-v2"
-    service_account_id = yandex_iam_service_account.service-accounts["shs-container"].id
-    resources {
-      cores         = 4
-      memory        = 4
-      core_fraction = 20
-    }
-    scheduling_policy {
-      preemptible = true
-    }
-    network_interface {
-      # network_id = yandex_vpc_network.nz-net.id
-      subnet_ids = ["${yandex_vpc_subnet.nz-net.id}"]
-      nat        = true
-    }
-    boot_disk {
-      initialize_params {
-        type     = "network-hdd"
-        size     = "30"
-        image_id = data.yandex_compute_image.coi.id
-      }
-    }
-    metadata = {
-      docker-compose = templatefile(
-        "${path.module}/../nginx/docker-compose.yaml",
-        {
-          registry_id = "${local.registry_id}",
-          folder_id   = "${local.folder_id}",
-        }
-      )
-      user-data = templatefile(
-        "${path.module}/../nginx/cloud_config.yaml",
-        {
-          shs_address_0 = "${data.yandex_compute_instance_group.shs.instances.0.network_interface.0.ip_address}"
-          shs_address_1 = "${data.yandex_compute_instance_group.shs.instances.1.network_interface.0.ip_address}"
-        }
-      )
-    }
-  }
 }
 
 resource "yandex_compute_instance_group" "openresty" {
@@ -347,6 +290,8 @@ resource "yandex_compute_instance_group" "openresty" {
         {
           shs_address_0 = "${data.yandex_compute_instance_group.shs.instances.0.network_interface.0.ip_address}"
           shs_address_1 = "${data.yandex_compute_instance_group.shs.instances.1.network_interface.0.ip_address}"
+          fullchain     = "${data.external.env.result["fullchain"]}"
+          privkey       = "${data.external.env.result["privkey"]}"
         }
       )
     }
