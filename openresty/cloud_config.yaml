@@ -28,6 +28,10 @@ write_files:
     	server ${shs_address_0};
     	server ${shs_address_1};
     }
+    upstream hosts_bu {
+    	server ${shs_address_0};
+    	server ${shs_address_1} backup;
+    }
 
     lua_package_path "/usr/local/openresty/module/lib/resty/upstream/?.lua;;";
 
@@ -50,6 +54,19 @@ write_files:
             valid_statuses = {200},
             concurrency = 10,
         }
+        ok, err = hc.spawn_checker{
+            shm = "healthcheck",
+            upstream = "hosts_bu",
+            type = "http",
+            http_req = "GET /ping HTTP/1.1\nHost: hosts_bu\n\n",
+            port = nil,
+            interval = 2000,
+            timeout = 1000,
+            fall = 3,
+            rise = 2,
+            valid_statuses = {200},
+            concurrency = 10,
+        }
         if not ok then
             ngx.log(ngx.ERR, "failed to spawn health checker: ", err)
             return
@@ -64,14 +81,29 @@ write_files:
     		access_log off;
     		proxy_pass http://hosts;
     		proxy_cache cache;
-    		proxy_cache_valid any 10m;
+    		proxy_cache_valid any 1m;
     		add_header X-Proxy-Cache $upstream_cache_status;
     	}
     	location / {
     		access_log off;
     		proxy_pass http://hosts;
     	}
-
+        location /api/customer {
+    		access_log off;
+    		proxy_pass http://hosts;
+    	}
+    	location /api/session {
+    		access_log off;
+    		proxy_pass http://hosts;
+    	} 
+    	location /api/customer/ {
+    		access_log off;
+    		proxy_pass http://hosts_bu;
+    	}
+    	location /api/session/ {
+    		access_log off;
+    		proxy_pass http://hosts_bu;
+    	}        
     	location /hck_status {
     		access_log off;
     		default_type text/plain;
@@ -85,21 +117,16 @@ write_files:
     	location /nginx-status {
         	stub_status on;
     	}
+        listen 443 ssl; # managed by Certbot
+        ssl_certificate /etc/letsencrypt/live/shs.netzen.dev/fullchain.pem; # managed by Certbot
+        ssl_certificate_key /etc/letsencrypt/live/shs.netzen.dev/privkey.pem; # managed by Certbot
     }
-
-- path: /usr/local/openresty/nginx/conf/nginx.conf 
+- path: /etc/letsencrypt/live/shs.netzen.dev/fullchain.pem
   content: |
-    server {
-    	listen 80;
-        server_name shs.netzen.dev;
-    	}
-      location /nginx-status {
-        stub_status on;
-      }
-    }
-- path: /var/run/openresty/nginx-client-body/mk.dir
+${fullchain}
+- path: /etc/letsencrypt/live/shs.netzen.dev/privkey.pem
   content: |
-    mkdir
+${privkey}
 - path: /usr/local/openresty/module/lib/resty/upstream/healthcheck.lua
   content: |
     local stream_sock = ngx.socket.tcp
