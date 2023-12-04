@@ -206,7 +206,7 @@ resource "yandex_compute_instance_group" "shs" {
       user-data = templatefile(
         "${path.module}/../shs/cloud_config.yaml",
         {
-          db_address        = "${data.yandex_compute_instance_group.db.instances.0.network_interface.0.ip_address}"
+          db_address        = "${data.yandex_compute_instance_group.db.instances.0.fqdn}"
           POSTGRES_DB       = "${data.external.env.result["POSTGRES_DB"]}",
           POSTGRES_USER     = "${data.external.env.result["POSTGRES_USER"]}",
           POSTGRES_PASSWORD = "${data.external.env.result["POSTGRES_PASSWORD"]}",
@@ -288,8 +288,8 @@ resource "yandex_compute_instance_group" "openresty" {
       user-data = templatefile(
         "${path.module}/../openresty/cloud_config.yaml",
         {
-          shs_address_0 = "${data.yandex_compute_instance_group.shs.instances.0.network_interface.0.ip_address}"
-          shs_address_1 = "${data.yandex_compute_instance_group.shs.instances.1.network_interface.0.ip_address}"
+          shs_address_0 = "${data.yandex_compute_instance_group.shs.instances.0.fqdn}"
+          shs_address_1 = "${data.yandex_compute_instance_group.shs.instances.1.fqdn}"
           fullchain     = "${data.external.env.result["fullchain"]}"
           privkey       = "${data.external.env.result["privkey"]}"
         }
